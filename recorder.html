@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Story Video Creator – Modern iPhone Frame</title>
+<style>
+    :root {
+        --bg          : #0a0a0c;
+        --panel       : #16161a;
+        --panelLight  : #f2f2f2;
+        --text        : #ffffff;
+        --textDim     : #9ca3af;
+        --accent      : #0784ff;
+        --bubbleMe    : var(--accent);
+        --bubbleOther : #26252a;
+        --statusBar   : rgba(25,25,32,.95);
+        --headerBar   : rgba(25,25,32,.95);
+        --footerBar   : rgba(25,25,32,.95);
+        --inputBg     : #000000;
+        --inputBorder : #33333f;
+    }
+    .light {
+        --bg          : #fafafa;
+        --panel       : #ffffff;
+        --panelLight  : #f2f2f2;
+        --text        : #111111;
+        --textDim     : #555555;
+        --accent      : #0066ff;
+        --bubbleMe    : var(--accent);
+        --bubbleOther : #e5e5ea;
+        --statusBar   : rgba(250,250,250,.95);
+        --headerBar   : rgba(250,250,250,.95);
+        --footerBar   : rgba(250,250,250,.95);
+        --inputBg     : #ffffff;
+        --inputBorder : #cccccc;
+    }
+
+    body{
+        font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background:var(--bg);
+        color:var(--text);
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        padding:20px;
+        margin:0;
+    }
+    .container{
+        display:flex;
+        gap:30px;
+        max-width:1300px;
+        width:100%;
+        justify-content:center;
+    }
+    #canvas-container{
+        position:relative;
+        border:4px solid #222;
+        border-radius:30px;
+        overflow:hidden;
+        width:360px;
+        height:640px;
+        background:#000;
+        box-shadow:0 20px 50px rgba(0,0,0,.8);
+    }
+    canvas{width:100%;height:100%;}
+    .controls{
+        background:var(--panel);
+        padding:25px;
+        border-radius:20px;
+        width:450px;
+        box-shadow:0 4px 20px rgba(0,0,0,.5);
+        border:1px solid #2a2a30;
+    }
+    textarea{
+        width:100%;height:280px;
+        background:#0d0d10;
+        color:#00f0ff;
+        border:1px solid #33333d;
+        border-radius:10px;
+        font-family:'Courier New',Courier,monospace;
+        padding:12px;box-sizing:border-box;
+        font-size:12px;line-height:1.4;
+    }
+    button{
+        background:#007AFF;color:#fff;
+        border:none;padding:14px 20px;
+        border-radius:10px;cursor:pointer;
+        font-weight:bold;margin-top:10px;
+        width:100%;transition:.2s;
+        font-size:15px;
+    }
+    button:hover{background:#0056b3;}
+    button:disabled{background:#333;color:#777;cursor:not-allowed;}
+    .record-btn{background:#ff3b30;}
+    .record-btn:hover{background:#d32f2f;}
+    input[type=file]{margin-bottom:15px;}
+    h3{margin:15px 0 8px;color:#eee;font-size:15px;}
+    #status{margin-top:15px;font-weight:bold;color:#ffca28;font-size:14px;text-align:center;}
+    #themeToggle{
+        position:absolute;top:10px;right:10px;
+        background:rgba(0,0,0,.3);
+        color:#fff;border:none;
+        padding:6px 10px;border-radius:6px;
+        cursor:pointer;
+    }
+</style>
+</head>
+<body class="dark">
+
+<button id="themeToggle">🌞 Light</button>
+
+<h1>Story Video Renderer (Modern iPhone Frame)</h1>
+
+<div class="container">
+    <div id="canvas-container">
+        <canvas id="videoCanvas" width="1080" height="1920"></canvas>
+    </div>
+
+    <div class="controls">
+        <h3>1. Upload Background Video</h3>
+        <input type="file" id="videoInput" accept="video/*"><br>
+
+        <h3>2. Story JSON</h3>
+        <textarea id="jsonInput">
+{
+  "chatTitle": "Unknown Number",
+  "phoneNumber": "+1 (555) 019-8821",
+  "clock": { "hour": 2, "minute": 55 },
+  "avatarInitials": "UN",
+  "messages": [
+    {"sender":"Other","text":"Are you awake right now?"},
+    {"sender":"Me","text":"Yeah, why? It's 3 AM..."},
+    {"sender":"Other","text":"Look outside your bedroom window."},
+    {"sender":"Me","text":"Stop messing around. Who is this?"},
+    {"sender":"Other","text":"I'm not joking. I can see you sitting on your bed typing."},
+    {"sender":"Me","text":"I just checked. Nobody is outside."},
+    {"sender":"Other","text":"That's because I didn't say I was outside..."},
+    {"sender":"Other","text":"I said look outside your window. I'm inside looking out."},
+    {"sender":"Me","text":"WHAT?! I am calling the police right now."},
+    {"sender":"Other","text":"Turn around."}
+  ]
+}
+        </textarea>
+
+        <h3>3. Render & Record</h3>
+        <button onclick="previewStory()">Preview UI Frame</button>
+        <button class="record-btn" id="recordBtn" onclick="startRecording()">Start Recording & Render</button>
+        <p id="status">Ready to load story.</p>
+    </div>
+</div>
+
+<video id="bgVideo" src="background.mp4" loop muted style="display:none"></video>
+
+<script>
+/* ============================= GLOBALS ============================= */
+const canvas   = document.getElementById('videoCanvas');
+const ctx      = canvas.getContext('2d');
+const video    = document.getElementById('bgVideo');
+const jsonIn   = document.getElementById('jsonInput');
+const recBtn   = document.getElementById('recordBtn');
+const status   = document.getElementById('status');
+const themeBtn = document.getElementById('themeToggle');
+
+let storyData = {};
+let activeMessages = [];
+let isTyping = false;
+let typingSender = '';
+let typingStart = 0;
+let typingDuration = 0;
+let typingMsg = null;
+let startTimestamp = 0;
+let isRendering = false;
+let audioCtx, mediaDestination;
+
+// Automation flags for Playwright
+window.renderComplete = false;
+window.renderedBase64 = null;
+
+/* ============================= THEME ============================= */
+themeBtn.addEventListener('click',()=> {
+    document.body.classList.toggle('light');
+    document.body.classList.toggle('dark');
+    themeBtn.textContent = document.body.classList.contains('light') ? '🌙 Dark' : '🌞 Light';
+});
+
+/* ============================= AUDIO ============================= */
+function initAudio(){
+    if(!audioCtx){
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        mediaDestination = audioCtx.createMediaStreamDestination();
+    }
+    document.playedAudios = [];
+}
+
+function playPopSound(){
+    if(!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(580, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1150, audioCtx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    if(mediaDestination) gain.connect(mediaDestination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+}
+
+function playAudioTrack(fileName){
+    document.playedAudios = document.playedAudios || [];
+    let url = "tts_output/" + fileName;
+    if(!document.playedAudios.includes(url)){
+        const audio = new Audio(url);
+        audio.crossOrigin = "anonymous";
+        const source = audioCtx.createMediaElementSource(audio);
+        source.connect(mediaDestination);
+        source.connect(audioCtx.destination);
+        audio.playbackRate = 1.0;
+        audio.play();
+        document.playedAudios.push(url);
+    }
+}
+
+/* ============================= HELPERS ============================= */
+function drawRoundRect(ctx,x,y,w,h,r,fill,stroke,lineW=2,tl=true,tr=true,bl=true,br=true){
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    if(tr){ ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);} else { ctx.lineTo(x+w, y);}
+    if(br){ ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);} else { ctx.lineTo(x+w, y+h);}
+    if(bl){ ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);} else { ctx.lineTo(x, y+h);}
+    if(tl){ ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);} else { ctx.lineTo(x, y);}
+    ctx.closePath();
+    if(fill){ ctx.fillStyle=fill; ctx.fill();}
+    if(stroke){ ctx.strokeStyle=stroke; ctx.lineWidth=lineW; ctx.stroke();}
+}
+
+function wrapText(ctx,text,maxW){
+    const lines=[];
+    const paragraphs=text.split('\n');
+    for(const p of paragraphs){
+        const words=p.split(' ');
+        let line='';
+        for(const w of words){
+            const test=line?line+' '+w:w;
+            if(ctx.measureText(test).width>maxW && line){
+                lines.push(line); line=w;
+            }else line=test;
+        }
+        if(line) lines.push(line);
+    }
+    return lines;
+}
+
+/* ============================= TIME ============================= */
+function getCurrentClock(){
+    const base = new Date();
+    const hour = (storyData.clock && storyData.clock.hour !== undefined) ? storyData.clock.hour : 2;
+    const min = (storyData.clock && storyData.clock.minute !== undefined) ? storyData.clock.minute : 55;
+    base.setHours(hour, min, 0, 0);
+    const elapsed = (Date.now() - startTimestamp)/1000;
+    const now = new Date(base.getTime() + elapsed*1000);
+    const h = now.getHours()%12 || 12;
+    const m = now.getMinutes().toString().padStart(2,'0');
+    return `${h}:${m}`;
+}
+
+/* ============================= ICONS ============================= */
+function drawSendAndMicIcon(cx, cy, size, isTypingActive){
+    if(isTypingActive){
+        ctx.beginPath();
+        ctx.arc(cx, cy, size, 0, Math.PI * 2);
+        ctx.fillStyle = "#007AFF";
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = size * 0.13;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const arrowHeight = size * 0.9;
+        const topY = cy - (arrowHeight / 2);
+        const bottomY = cy + (arrowHeight / 2);
+        const wingWidth = size * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(cx, bottomY);
+        ctx.lineTo(cx, topY);
+        ctx.moveTo(cx - wingWidth, topY + wingWidth);
+        ctx.lineTo(cx, topY);
+        ctx.lineTo(cx + wingWidth, topY + wingWidth);
+        ctx.stroke();
+    } else {
+        cy -= 3;
+        ctx.strokeStyle = "#6B7280";
+        ctx.fillStyle = "#6B7280";
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        const micWidth = size*1.2 * 0.35;
+        const micHeight = size*1.2 * 0.55;
+        const stemHeight = size*1.2 * 0.15;
+        const baseWidth = size*1.2 * 0.3;
+        ctx.lineWidth = size*1.2 * 0.08;
+        const capX = cx - (micWidth / 2);
+        const capY = cy - (micHeight / 2) - (size*1.2 * 0.1);
+        ctx.beginPath();
+        ctx.roundRect(capX, capY, micWidth, micHeight, micWidth / 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.lineWidth = size*1.2 * 0.08;
+        ctx.arc(cx, capY + micHeight - (micWidth / 2), micWidth, 0, Math.PI);
+        ctx.stroke();
+        const cradleBottomY = capY + micHeight + (micWidth / 2);
+        ctx.beginPath();
+        ctx.moveTo(cx, cradleBottomY);
+        ctx.lineTo(cx, cradleBottomY + stemHeight);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - (baseWidth / 2), cradleBottomY + stemHeight);
+        ctx.lineTo(cx + (baseWidth / 2), cradleBottomY + stemHeight);
+        ctx.stroke();
+    }
+}
+
+/* ============================= DRAW UI ============================= */
+function drawMobileUI(){
+    const fx = 120, fy = 130, fw = 840, fh = 1660; // inner phone frame
+
+    // ---- outer bezel ----
+    drawRoundRect(ctx,fx-10,fy-10,fw+20,fh+20,85,'#0d0d11','rgba(255,255,255,0.15)',3);
+    drawRoundRect(ctx,fx,fy,fw,fh,75,'rgba(15,15,20,0.92)','rgba(255,255,255,0.08)');
+
+    // ---- status bar (clock, battery) ----
+    ctx.fillStyle='#fff';
+    ctx.font='bold 28px -apple-system, BlinkMacSystemFont, Arial';
+    ctx.textBaseline='middle';
+    ctx.textAlign='left';
+    ctx.fillText(getCurrentClock(), fx+70, fy+55);
+    
+    // battery outline
+    drawRoundRect(ctx,fx+fw-110,fy+42,50,24,6,null,'#fff',2);
+    drawRoundRect(ctx,fx+fw-106,fy+46,32,16,3,'#fff');
+
+    // ---- dynamic island (notch) ----
+    drawRoundRect(ctx,fx+(fw/2)-110,fy+35,220,42,21,'#222');
+
+    // ---- header (avatar + name) ----
+    const headerY = fy+95;
+    drawRoundRect(ctx,fx,headerY,fw,140,0,'rgba(25,25,32,0.95)');
+    ctx.beginPath(); ctx.moveTo(fx,headerY+140); ctx.lineTo(fx+fw,headerY+140);
+    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=2; ctx.stroke();
+
+    // avatar
+    const avX = fx+75, avY = headerY+70, avR = 42;
+    ctx.beginPath(); ctx.arc(avX,avY,avR,0,Math.PI*2);
+    ctx.fillStyle='#555'; ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.font='bold 32px Arial';
+    ctx.textAlign='center';
+    ctx.fillText(storyData.avatarInitials||'UN', avX, avY+2);
+    
+    // online dot
+    ctx.beginPath(); ctx.arc(avX+28,avY+28,11,0,Math.PI*2);
+    ctx.fillStyle='#10B981'; ctx.fill();
+
+    // title & number
+    ctx.textAlign='left';
+    ctx.font='bold 34px Arial';
+    ctx.fillStyle='#fff';
+    ctx.fillText(storyData.chatTitle||'Unknown', avX+65, avY-10);
+    ctx.font='22px Arial';
+    ctx.fillStyle='#9CA3AF';
+    ctx.fillText(storyData.phoneNumber||'iMessage', avX+65, avY+24);
+
+    // ---- footer (input bar) ----
+    const footY = fy+fh-120;
+    drawRoundRect(ctx,fx,footY,fw,120,75,'rgba(25,25,32,0.95)',false,2,false,false);
+    drawRoundRect(ctx,fx+40,footY+20,fw-80,75,38,'#000000','#33333f');
+    const maxCharLength = (()=>{
+        let txt = "#";
+        while(ctx.measureText(txt).width < fw - 240){
+            txt += "#";
+        }
+        return txt.length - 1;
+    })();
+
+    // input placeholder or typed text
+    ctx.fillStyle='#6B7280';
+    ctx.font='28px Arial';
+    const inputX = fx+80, inputY = footY+58;
+    if(isTyping && typingSender==='Me' && typingMsg){
+        const elapsed = performance.now()-typingStart;
+        const pct = Math.min(1, elapsed/typingDuration);
+        const txtLength = Math.round(pct*typingMsg.text.length);
+        const visible = typingMsg.text.slice(Math.max(0, txtLength - maxCharLength - 1), txtLength);
+        ctx.fillStyle='#fff';
+        ctx.fillText(visible, inputX, inputY);
+    }else{
+        ctx.fillText('iMessage', inputX, inputY);
+    }
+
+    drawSendAndMicIcon(fx+fw-78, footY+58, 30, (isTyping && typingSender==='Me' && typingMsg));
+
+    // ---- messages & typing indicator ----
+    let curY = footY-35;
+    ctx.font='32px Arial';
+
+    // typing indicator (bubble with bouncing dots)
+    if(isTyping){
+        const isMe = typingSender==='Me';
+        const bubbleW=150, bubbleH=75;
+        const bubbleX = isMe ? (fx+fw-50-bubbleW) : (fx+50);
+        const bubbleColor = isMe ? getComputedStyle(document.body).getPropertyValue('--bubbleMe')
+                                 : getComputedStyle(document.body).getPropertyValue('--bubbleOther');
+        drawRoundRect(ctx,bubbleX,curY-bubbleH,bubbleW,bubbleH,35,bubbleColor);
+        
+        // bouncing dots
+        const now = Date.now();
+        const dotY = curY - bubbleH/2;
+        ctx.fillStyle='#fff';
+        [0,1,2].forEach(i=>{
+            const bounce = Math.sin((now/160)+(i*0.8))*6;
+            ctx.beginPath();
+            ctx.arc(bubbleX+45+(i*30), dotY+bounce, 7,0,Math.PI*2);
+            ctx.fill();
+        });
+        curY -= (bubbleH+20);
+    }
+
+    // render already-sent messages (bottom-up)
+    for(let i=activeMessages.length-1;i>=0;i--){
+        const m = activeMessages[i];
+        const isMe = m.sender==='Me';
+        const maxW = 540;
+        const lines = wrapText(ctx,m.text,maxW);
+        const lineH = 42;
+        let padX = 35, padY = 24;
+        let txtW=0;
+        lines.forEach(l=>{ const w=ctx.measureText(l).width; if(w>txtW) txtW=w; });
+        const bubbleW = Math.max(130, txtW+padX*2);
+        const bubbleH = lines.length*lineH + padY*2;
+        const bubbleX = isMe ? (fx+fw-50-bubbleW) : (fx+50);
+        const bubbleY = curY-bubbleH;
+        padY = 44;
+        if(bubbleY < headerY+150) break; // stop if hitting the header
+        const bubbleColor = isMe ? getComputedStyle(document.body).getPropertyValue('--bubbleMe')
+                                 : getComputedStyle(document.body).getPropertyValue('--bubbleOther');
+        drawRoundRect(ctx,bubbleX,bubbleY,bubbleW,bubbleH,35,bubbleColor,false,2,isMe,!isMe);
+        ctx.fillStyle='#fff';
+        lines.forEach((ln,idx)=>{
+            ctx.fillText(ln, bubbleX+padX, bubbleY+padY+idx*lineH);
+        });
+        curY -= (bubbleH+18);
+    }
+}
+
+/* ============================= MAIN DRAW LOOP ============================= */
+function drawFrame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(video.readyState>=2){
+        const vw=video.videoWidth, vh=video.videoHeight;
+        const scale=Math.max(canvas.width/vw, canvas.height/vh);
+        const x=canvas.width/2 - (vw/2)*scale;
+        const y=canvas.height/2 - (vh/2)*scale;
+        ctx.drawImage(video, x, y, vw*scale, vh*scale);
+    }else{
+        ctx.fillStyle='#050508';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+    drawMobileUI();
+    if(isRendering) requestAnimationFrame(drawFrame);
+}
+
+/* ============================= PREVIEW ============================= */
+function previewStory(){
+    try{
+        storyData = JSON.parse(jsonIn.value);
+        startTimestamp = Date.now();
+        activeMessages = storyData.messages.slice(0,3);
+        isTyping = false;
+        drawFrame();
+        status.textContent='UI preview ready!';
+    }catch(e){
+        alert('JSON parse error – check formatting.');
+    }
+}
+
+/* ============================= STORY PLAYBACK ============================= */
+async function runStorySequence(){
+    activeMessages = [];
+    const msgs = storyData.messages;
+    
+    for(let i=0; i<msgs.length; i++){
+        const m = msgs[i];
+
+        // First message loaded instantly at Frame 0
+        if(i > 0 && m.typingDuration && m.typingDuration > 0){
+            isTyping = true;
+            typingSender = m.sender;
+            typingStart = performance.now();
+            typingDuration = m.typingDuration;
+            if(m.sender==='Me'){
+                typingMsg = m;
+            }
+            await new Promise(r=>setTimeout(r, m.typingDuration));
+        }
+
+        isTyping = false;
+        typingSender = '';
+        typingMsg = null;
+        activeMessages.push(m);
+        playPopSound();
+
+        // Play individual audio track synchronized
+        const audioFile = m.audioFile || `${i.toString().padStart(2,'0')}_${m.sender}.mp3`;
+        playAudioTrack(audioFile);
+
+        // Wait dynamically calculated spoken duration + gap
+        const spokenDur = (m.audioDuration ? m.audioDuration * 1000 : 0);
+        const delay = m.nextTimeDelta || 1800;
+        await new Promise(r=>setTimeout(r, spokenDur + delay));
+    }
+
+    setTimeout(()=>{ if(document.stopRecording) document.stopRecording(); }, 1500);
+}
+
+/* ============================= RECORDING ============================= */
+async function startRecording(){
+    initAudio();
+    try{
+        storyData = JSON.parse(jsonIn.value);
+    }catch(e){ alert('Invalid JSON'); return; }
+
+    startTimestamp = Date.now();
+    isTyping = false; typingSender=''; typingMsg=null;
+    activeMessages = [];
+
+    const recorded = [];
+    const stream = canvas.captureStream(30);
+    const outStream = new MediaStream([
+        ...stream.getVideoTracks(),
+        ...mediaDestination.stream.getAudioTracks()
+    ]);
+
+    const recorder = new MediaRecorder(outStream,{mimeType:'video/webm;codecs=vp9'});
+    recorder.ondataavailable=e=>{ if(e.data.size) recorded.push(e.data); };
+    recorder.onstop=()=> {
+        isRendering = false;
+        video.pause();
+        const blob = new Blob(recorded,{type:'video/webm'});
+        
+        // Export Base64 for Playwright automation
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+            window.renderedBase64 = reader.result;
+            window.renderComplete = true;
+        };
+
+        const url = URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url; a.download='story_mobile_video.webm'; a.click();
+        recBtn.disabled=false;
+        status.textContent='✅ Rendering finished.';
+    };
+    document.stopRecording = ()=> recorder.stop();
+
+    recBtn.disabled=true;
+    status.textContent='⏳ Recording… please wait.';
+    isRendering = true;
+    video.play();
+    drawFrame();
+    recorder.start();
+
+    runStorySequence();
+}
+
+/* ============================= FILE INPUT & AUTO-START ============================= */
+document.getElementById('videoInput').onchange = e=>{
+    const f = e.target.files[0];
+    if(f){
+        video.src = URL.createObjectURL(f);
+        video.onloadedmetadata = ()=>{
+            status.textContent='✅ Video loaded.';
+            drawFrame();
+        };
+    }
+};
+
+// Auto-run if triggered by Playwright / Cloud Renderer
+window.addEventListener('load', async () => {
+    try {
+        const res = await fetch("timed_story.json");
+        if(res.ok){
+            storyData = await res.json();
+            jsonIn.value = JSON.stringify(storyData, null, 2);
+            await new Promise(r => { video.onloadedmetadata = r; if(video.readyState>=2) r(); });
+            setTimeout(startRecording, 600);
+        }
+    } catch(e){}
+});
+</script>
+</body>
+</html>
