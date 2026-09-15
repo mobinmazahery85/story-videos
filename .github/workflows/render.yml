@@ -32,10 +32,13 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Save Story Input
+        env:
+          STORY_JSON: ${{ github.event.inputs.story_json }}
         run: |
-          echo $(cat << EOF \
-              ${{ github.event.inputs.story_json }} \
-              EOF) > story.json
+          cat << 'EOF' > story.json
+          $STORY_JSON
+          EOF
+
 
       - name: Download Default Background Gameplay
         run: |
