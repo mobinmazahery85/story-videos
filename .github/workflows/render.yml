@@ -33,7 +33,9 @@ jobs:
 
       - name: Save Story Input
         run: |
-          echo '${{ github.event.inputs.story_json }}' > story.json
+          echo $(cat << EOF \
+              ${{ github.event.inputs.story_json }} \
+              EOF) > story.json
 
       - name: Download Default Background Gameplay
         run: |
