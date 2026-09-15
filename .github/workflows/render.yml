@@ -1,0 +1,55 @@
+name: Generate & Render Story Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      story_json:
+        description: 'Story JSON Configuration'
+        required: true
+        default: '{}'
+
+jobs:
+  build-and-render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python Dependencies
+        run: |
+          pip install edge-tts pydub playwright huggingface_hub
+          playwright install --with-deps chromium
+
+      - name: Save Story Input
+        run: |
+          echo '${{ github.event.inputs.story_json }}' > story.json
+
+      - name: Download Default Background Gameplay
+        run: |
+          # Downloads seamless vertical parkour if not present
+          if [ ! -f background.mp4 ]; then
+            curl -L -o background.mp4 "https://huggingface.co/datasets/mobinmazahery85/story-videos/resolve/main/MC%20Parkour.mp4" || touch background.mp4
+          fi
+
+      - name: Step 1 - Process Audio & Timing
+        run: python pipeline.py story.json
+
+      - name: Step 2 - Headless Render Video
+        run: python render_video.py
+
+      - name: Step 3 - Upload Assets to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_REPO_ID: ${{ secrets.HF_REPO_ID }}
+        run: python upload_hf.py
