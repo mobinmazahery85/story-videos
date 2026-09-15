@@ -32,11 +32,9 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Save Story Input
-        env:
-          STORY_JSON: ${{ github.event.inputs.story_json }}
         run: |
           cat << 'EOF' > story.json
-          $STORY_JSON
+          ${{ github.event.inputs.story_json }}
           EOF
 
 
