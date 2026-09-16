@@ -18,7 +18,7 @@ def upload():
     folder_name = f"video_{timestamp}"
     
     files_to_upload = {
-        "final_output.mp4": f"{folder_name}/video.mp4",
+        "temp_render.webm": f"{folder_name}/video.webm",
         "captions.sbv": f"{folder_name}/captions.sbv",
         "metadata.json": f"{folder_name}/metadata.json",
         "timed_story.json": f"{folder_name}/story.json"
@@ -37,7 +37,7 @@ def upload():
             print(f"✅ Uploaded: {hf_path}")
 
     # Output direct URL for latest build
-    direct_url = f"https://huggingface.co/datasets/{HF_REPO_ID}/resolve/main/{folder_name}/video.mp4"
+    direct_url = f"https://huggingface.co/datasets/{HF_REPO_ID}/resolve/main/{folder_name}/video.webm"
     print(f"\n🎉 Public Video Direct URL:\n{direct_url}")
 
 if __name__ == "__main__":
