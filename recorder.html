@@ -152,11 +152,6 @@
 <video id="bgVideo" src="background.mp4" loop muted style="display:none"></video>
 
 <script>
-window.outputlog = [];
-console.log = (message)=>{window.outputlog.push("[LOG]: " + message);};
-console.error = (message)=>{window.outputlog.push("[ERROR]: " + message);};
-console.debug = (message)=>{window.outputlog.push("[DEBUG]: " + message);};
-
     
 /* ============================= GLOBALS ============================= */
 const canvas   = document.getElementById('videoCanvas');
@@ -559,7 +554,6 @@ async function startRecording(){
         reader.onloadend = () => {
             window.renderedBase64 = reader.result;
             window.renderComplete = true;
-            window.outputlog = window.outputlog.join("\n");
         };
 
         const url = URL.createObjectURL(blob);
