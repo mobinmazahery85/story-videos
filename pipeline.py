@@ -92,6 +92,7 @@ async def process_story(story_json_path, output_dir="tts_output"):
     story["totalDuration"] = current_timeline
     with open("timed_story.json", "w", encoding="utf-8") as f:
         json.dump(story, f, indent=2)
+    print(f"timed_story={story}")
 
     # Save .sbv Subtitle file
     with open("captions.sbv", "w", encoding="utf-8") as f:
