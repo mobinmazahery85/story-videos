@@ -23,13 +23,14 @@ def render():
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--autoplay-policy=no-user-gesture-required"])
         page = browser.new_page(viewport={"width": 1080, "height": 1920})
+        page.on("console", lambda msg: print(msg.text))
         
         page.goto(f"http://localhost:{PORT}/recorder.html")
         print("⏳ Recording animation & syncing audio...")
 
         # Wait for render completion flag
         page.wait_for_function("window.renderComplete === true", timeout=120000)
-        print("JS Console Output: " + page.evaluate("window.outputlog"))
+        
         # Retrieve rendered Base64 WebM
         base64_data = page.evaluate("window.renderedBase64").split(",")[1]
         raw_webm = "temp_render.webm"
