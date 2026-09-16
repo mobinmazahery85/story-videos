@@ -29,7 +29,7 @@ def render():
 
         # Wait for render completion flag
         page.wait_for_function("window.renderComplete === true", timeout=120000)
-
+        print("JS Console Output: " + page.evaluate("window.outputlog"))
         # Retrieve rendered Base64 WebM
         base64_data = page.evaluate("window.renderedBase64").split(",")[1]
         raw_webm = "temp_render.webm"
