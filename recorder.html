@@ -448,7 +448,6 @@ function drawMobileUI(){
             ctx.fillText(ln, bubbleX+padX, bubbleY+padY+idx*lineH);
         });
         curY -= (bubbleH+18);
-        playAudio(i, isMe);
     }
 }
 
@@ -508,6 +507,7 @@ async function runStorySequence(){
         typingMsg = null;
         activeMessages.push(m);
         playPopSound();
+        playAudio(i, m.sender==='Me');
 
         // Play individual audio track synchronized
         // const audioFile = m.audioFile || `${i.toString().padStart(2,'0')}_${m.sender}.mp3`;
