@@ -11,7 +11,7 @@ PORT = 8080
 
 def start_server():
     handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", PORT), handler) as httpd:
+    with socketserver.ThreadingTCPServer(("", PORT), handler) as httpd:
         httpd.serve_forever()
 
 def render():
