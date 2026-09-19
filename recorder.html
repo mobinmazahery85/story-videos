@@ -374,14 +374,6 @@ function drawMobileUI(){
     const footY = fy+fh-120;
     drawRoundRect(ctx,fx,footY,fw,120,75,'rgba(25,25,32,0.95)',false,2,false,false);
     drawRoundRect(ctx,fx+40,footY+20,fw-80,75,38,'#000000','#33333f');
-    const maxCharLength = (()=>{
-        let txt = "#";
-        while(ctx.measureText(txt).width < fw - 240){
-            txt += "#";
-        }
-        return txt.length - 1;
-    })();
-
     // input placeholder or typed text
     ctx.fillStyle='#6B7280';
     ctx.font='28px Arial';
@@ -390,6 +382,13 @@ function drawMobileUI(){
         const elapsed = performance.now()-typingStart;
         const pct = Math.min(1, elapsed/typingDuration);
         const txtLength = Math.round(pct*typingMsg.text.length);
+        const maxCharLength = (()=>{
+            let txt = 1;
+            while(ctx.measureText(typingMsg.text.slice(0,txt)).width < fw - 240){
+                txt += 1;
+            }
+            return txt - 1;
+        })();
         const visible = typingMsg.text.slice(Math.max(0, txtLength - maxCharLength - 1), txtLength);
         ctx.fillStyle='#fff';
         ctx.fillText(visible, inputX, inputY);
