@@ -15,7 +15,7 @@ api = HfApi(token=HF_TOKEN)
 
 def upload():
     files_to_upload = {
-        "final_output.mp4": f"{TARGET_FOLDER}/video.mp4",
+        "temp_render.webm": f"{TARGET_FOLDER}/video.webm",
         "captions.sbv": f"{TARGET_FOLDER}/captions.sbv",
         "metadata.json": f"{TARGET_FOLDER}/metadata.json",
         "timed_story.json": f"{TARGET_FOLDER}/story.json"
