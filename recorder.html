@@ -527,6 +527,9 @@ async function runStorySequence(){
 /* ============================= RECORDING ============================= */
 async function startRecording(){
     initAudio();
+
+    video.currentTime = Math.floor(Math.random() * 39) * 5;
+    
     try{
         storyData = JSON.parse(jsonIn.value);
     }catch(e){ alert('Invalid JSON'); return; }
