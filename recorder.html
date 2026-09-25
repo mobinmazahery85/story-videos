@@ -528,7 +528,22 @@ async function runStorySequence(){
 async function startRecording(){
     initAudio();
 
-    video.currentTime = Math.floor(Math.random() * 39) * 5;
+    const seekVideo = () => {
+        const targetTime = Math.floor(Math.random() * 39) * 5;
+        video.currentTime = targetTime;
+    };
+
+    if (video.readyState >= 1) {
+        seekVideo();
+    } else {
+        await new Promise(resolve => {
+            video.addEventListener('loadedmetadata', () => {
+                seekVideo();
+                resolve();
+            }, { once: true });
+        });
+    }
+
     
     try{
         storyData = JSON.parse(jsonIn.value);
